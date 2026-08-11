@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const child = spawn(
   process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
   ['exec', 'vite', '--config', 'vite.config.ts', '--host', '127.0.0.1'],
   {
-    cwd: new URL('..', import.meta.url),
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
     env: {
       ...process.env,
       BASE_PATH: '/',
