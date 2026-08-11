@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -54,6 +54,8 @@ import {
   verifyAgentPlan,
   writeWorkspaceFile,
 } from '@/native/bridge';
+import { askBrowserAgent, getAgentStatus as getBrowserAgentStatus } from '@workspace/api-client-react';
+import type { AgentMessage, AgentToolEvent } from '@workspace/api-client-react';
 import type {
   CommandResult,
   AgentDiff,
@@ -73,6 +75,7 @@ type ProjectFile = {
   content: string;
   modifiedMs?: number;
 };
+type BrowserAgentMessage = AgentMessage & { events?: AgentToolEvent[] };
 
 const starterFiles: ProjectFile[] = [
   {
@@ -338,6 +341,15 @@ function AppPhase2() {
   const [agentDiff, setAgentDiff] = useState<AgentDiff | null>(null);
   const [agentVerifications, setAgentVerifications] = useState<AgentVerification[]>([]);
   const [agentFeedback, setAgentFeedback] = useState('');
+  const [browserMessages, setBrowserMessages] = useState<BrowserAgentMessage[]>(() => {
+    try {
+      const saved = window.sessionStorage.getItem('mycode-ai-agent-history');
+      return saved ? JSON.parse(saved) as BrowserAgentMessage[] : [];
+    } catch {
+      return [];
+    }
+  });
+  const browserAbortRef = useRef<AbortController | null>(null);
 
   const activeFile = files.find((file) => file.path === activePath) ?? files[0] ?? emptyFile;
   const lineCount = useMemo(
@@ -427,14 +439,17 @@ function AppPhase2() {
   }, [activeFile, desktop, dirtyPaths, modifiedAt, showNotice, workspaceRoot]);
 
   useEffect(() => {
-    if (!desktop) {
-      setAgentStatus(null);
-      return;
-    }
-    void getAgentProviderStatus(provider)
+    const statusRequest = desktop
+      ? getAgentProviderStatus(provider)
+      : getBrowserAgentStatus({ provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter' });
+    void statusRequest
       .then(setAgentStatus)
       .catch(() => setAgentStatus(null));
   }, [desktop, provider]);
+
+  useEffect(() => {
+    window.sessionStorage.setItem('mycode-ai-agent-history', JSON.stringify(browserMessages));
+  }, [browserMessages]);
 
   const selectNode = async (node: WorkspaceNode) => {
     setSelectedPath(node.relativePath);
@@ -616,36 +631,66 @@ function AppPhase2() {
   };
 
   const askTheAgent = async (feedback?: string) => {
-    if (!desktop) {
-      showNotice('The Agent runs in the Windows desktop app so provider keys and local files stay native-only.');
-      return;
-    }
-    if (!workspaceRoot) {
+    if (desktop && !workspaceRoot) {
       showNotice('Open a local folder before asking the Agent to inspect or edit it.');
       return;
     }
     const prompt = agentPrompt.trim();
     if (!prompt && !feedback) return;
     setAgentBusy(true);
-    setAgentPlan(null);
-    setAgentDiff(null);
-    setAgentVerifications([]);
     try {
-      const plan = await askAgent({
-        root: workspaceRoot,
-        provider,
-        prompt: prompt || 'Fix the verification failures using the existing workspace context.',
-        feedback,
-      });
-      const diff = await previewAgentPlan(workspaceRoot, plan);
-      setAgentPlan(plan);
-      setAgentDiff(diff);
-      setAgentFeedback('');
+      if (!desktop) {
+        const nextUserMessage: AgentMessage = {
+          role: 'user',
+          content: prompt || 'Please address the verification feedback from the previous response.',
+        };
+        const controller = new AbortController();
+        browserAbortRef.current = controller;
+        const contextFiles = files
+          .filter((file) => file.content.length <= 80_000)
+          .slice(0, 80)
+          .map(({ path, content }) => ({ path, content }));
+        const response = await askBrowserAgent({
+          provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter',
+          messages: [...browserMessages, nextUserMessage].slice(-20),
+          files: contextFiles,
+        }, { signal: controller.signal });
+        setBrowserMessages((current) => [
+          ...current,
+          nextUserMessage,
+          { role: 'assistant' as const, content: response.message, events: response.events },
+        ].slice(-20));
+        setAgentPrompt('');
+        showNotice(`Agent replied via ${response.model}.`);
+      } else {
+        setAgentPlan(null);
+        setAgentDiff(null);
+        setAgentVerifications([]);
+        const plan = await askAgent({
+          root: workspaceRoot!,
+          provider,
+          prompt: prompt || 'Fix the verification failures using the existing workspace context.',
+          feedback,
+        });
+        const diff = await previewAgentPlan(workspaceRoot!, plan);
+        setAgentPlan(plan);
+        setAgentDiff(diff);
+        setAgentFeedback('');
+      }
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : 'The Agent could not create a plan.');
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        showNotice('Agent request stopped.');
+      } else {
+        showNotice(error instanceof Error ? error.message : 'The Agent could not create a response.');
+      }
     } finally {
+      browserAbortRef.current = null;
       setAgentBusy(false);
     }
+  };
+
+  const stopAgent = () => {
+    browserAbortRef.current?.abort();
   };
 
   const applyPlan = async () => {
@@ -812,7 +857,7 @@ function AppPhase2() {
             </div>
             <div className="agent-card mt-8 p-3.5">
               <div className="flex items-center gap-2 text-[11px] font-semibold text-[#cbd5ce]"><ShieldCheck size={14} color="#79d4cf" /> Connection status</div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#303943] pt-3"><span className="text-[11px] text-[#899397]">Agent engine</span><span className={`mono text-[10px] ${agentStatus?.configured ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}`}>{agentStatus?.configured ? 'ready' : desktop ? 'needs provider key' : 'desktop only'}</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#303943] pt-3"><span className="text-[11px] text-[#899397]">Agent engine</span><span className={`mono text-[10px] ${agentStatus?.configured ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}`}>{agentStatus?.configured ? 'ready' : 'needs provider key'}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Workspace context</span><span className="mono text-[10px] text-[#79d4cf]">{workspaceRoot ? 'local folder' : 'sample files'}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Git context</span><span className="mono text-[10px] text-[#79d4cf]">{git.isRepository ? `${git.changedFiles.length} changes` : 'not a repo'}</span></div>
             </div>
@@ -824,14 +869,31 @@ function AppPhase2() {
               {agentPlan.edits.length > 0 && <button className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-[#d5f36a] px-3 py-2 text-[11px] font-bold text-[#111419] hover:bg-[#e1f992]" onClick={() => void applyPlan()} disabled={agentBusy}><Check size={13} /> {agentBusy ? 'Applying…' : 'Approve & apply changes'}</button>}
               {agentVerifications.length > 0 && <div className="mt-3 space-y-2 border-t border-[#303943] pt-3">{agentVerifications.map((result) => <div key={result.command} className="text-[10px]"><div className={result.passed ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}>{result.passed ? '✓' : '×'} {result.command}</div>{!result.passed && <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap mono text-[9px] text-[#aeb9b2]">{result.stderr || result.stdout}</pre>}</div>)}</div>}
             </div>}
+            {!desktop && browserMessages.length > 0 && <div className="mt-5 space-y-3">
+              {browserMessages.map((message, index) => (
+                <div key={`${message.role}-${index}`} className={`rounded border p-3 ${message.role === 'user' ? 'border-[#39443b] bg-[#1b241f]' : 'border-[#303943] bg-[#171c22]'}`}>
+                  <div className="mb-1 flex items-center gap-2 text-[9px] uppercase tracking-[.12em] text-[#687278]">
+                    {message.role === 'user' ? 'You' : 'Agent'}
+                    {message.events?.length ? <span className="text-[#79d4cf]">{message.events.length} tool calls</span> : null}
+                  </div>
+                  <p className="whitespace-pre-wrap text-[11px] leading-[1.65] text-[#cbd5ce]">{message.content}</p>
+                  {message.events?.map((event, eventIndex) => (
+                    <details key={`${event.tool}-${eventIndex}`} className="mt-2 rounded border border-[#303943] bg-[#111419] p-2">
+                      <summary className="cursor-pointer text-[10px] text-[#d5f36a]">{event.tool}</summary>
+                      <pre className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap mono text-[9px] leading-[1.5] text-[#899397]">{event.result}</pre>
+                    </details>
+                  ))}
+                </div>
+              ))}
+            </div>}
             <div className="mt-5 rounded border border-[#303943] bg-[#171c22] p-3 text-[11px] leading-[1.6] text-[#899397]"><div className="mb-2 flex items-center gap-2 text-[#cbd5ce]"><Activity size={14} color="#d5f36a" /> Safe agent loop</div>Search and read context → plan → preview → your approval → apply → verify. Failed checks can be sent back for another iteration.</div>
           </div>
           <div className="border-t border-[#252c34] p-4">
             {agentFeedback && <button className="mb-2 w-full rounded border border-[#5a4534] px-3 py-2 text-left text-[10px] text-[#f1ad74] hover:border-[#f1ad74]" onClick={() => void askTheAgent(agentFeedback)}>Verification failed — ask Agent to iterate</button>}
             <div className="flex items-end gap-2 rounded border border-[#303943] bg-[#171c22] p-2">
               <MessageSquare size={14} className="mb-1 text-[#79d4cf]" />
-              <textarea className="agent-input" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder={desktop ? 'Ask to explain, fix, or change this workspace…' : 'Open the Windows desktop app to use Agent'} disabled={!desktop || agentBusy} rows={2} aria-label="Agent request" />
-              <button className="icon-button h-7 w-7 shrink-0 rounded" onClick={() => void askTheAgent()} disabled={!desktop || agentBusy || !agentPrompt.trim()} aria-label="Send Agent request">{agentBusy ? <LoaderCircle className="animate-spin" size={14} /> : <Sparkles size={14} />}</button>
+              <textarea className="agent-input" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder={desktop ? 'Ask to explain, fix, or change this workspace…' : 'Ask about the sample workspace…'} disabled={agentBusy} rows={2} aria-label="Agent request" />
+              <button className="icon-button h-7 w-7 shrink-0 rounded" onClick={() => agentBusy ? stopAgent() : void askTheAgent()} disabled={!agentBusy && !agentPrompt.trim()} aria-label={agentBusy ? 'Stop Agent request' : 'Send Agent request'}>{agentBusy ? <SquareTerminal size={14} /> : <Sparkles size={14} />}</button>
             </div>
           </div>
         </aside>

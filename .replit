@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "MyCode AI preview"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MyCode AI API"
+
 [[workflows.workflow]]
 name = "MyCode AI preview"
 author = "agent"
@@ -31,6 +35,18 @@ waitForPort = 5173
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "MyCode AI API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"

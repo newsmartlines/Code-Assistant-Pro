@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: agent
+    description: Browser-safe Agent operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /agent/status:
+    get:
+      operationId: getAgentStatus
+      tags: [agent]
+      summary: Get Agent provider status
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/AgentProvider"
+      responses:
+        "200":
+          description: Provider status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentStatus"
+  /agent/ask:
+    post:
+      operationId: askBrowserAgent
+      tags: [agent]
+      summary: Ask the browser-safe Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentAskBody"
+      responses:
+        "200":
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResponse"
+        "400":
+          description: Invalid Agent request
+        "503":
+          description: Provider is not configured
 components:
   schemas:
     HealthStatus:
@@ -33,4 +75,79 @@ components:
           type: string
       required:
         - status
+    AgentProvider:
+      type: string
+      enum: [anthropic, openai, gemini, openrouter]
+    AgentRole:
+      type: string
+      enum: [user, assistant]
+    AgentMessage:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/AgentRole"
+        content:
+          type: string
+      required: [role, content]
+    AgentFile:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+      required: [path, content]
+    AgentAskBody:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AgentProvider"
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentMessage"
+        files:
+          type: array
+          maxItems: 80
+          items:
+            $ref: "#/components/schemas/AgentFile"
+      required: [provider, messages, files]
+    AgentToolEvent:
+      type: object
+      properties:
+        tool:
+          type: string
+        input:
+          type: string
+        result:
+          type: string
+      required: [tool, input, result]
+    AgentStatus:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AgentProvider"
+        model:
+          type: string
+        configured:
+          type: boolean
+        message:
+          type: string
+      required: [provider, model, configured, message]
+    AgentResponse:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AgentProvider"
+        model:
+          type: string
+        message:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentToolEvent"
+      required: [provider, model, message, events]
 

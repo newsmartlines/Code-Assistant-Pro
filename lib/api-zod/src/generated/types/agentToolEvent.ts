@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface AgentToolEvent {
+  tool: string;
+  input: string;
+  result: string;
 }

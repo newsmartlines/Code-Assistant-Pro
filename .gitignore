@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+artifacts/mycode-ai/src-tauri/target/
+artifacts/mycode-ai/src-tauri/gen/schemas/windows-schema.json
+artifacts/mycode-ai/src-tauri/target/
+artifacts/mycode-ai/src-tauri/gen/schemas/windows-schema.json
