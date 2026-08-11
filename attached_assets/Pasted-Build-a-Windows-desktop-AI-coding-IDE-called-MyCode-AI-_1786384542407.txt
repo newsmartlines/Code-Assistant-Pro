@@ -1,0 +1,81 @@
+Build a Windows desktop AI coding IDE called "MyCode AI", inspired by the workflow of Cursor.
+
+This is a DESKTOP APPLICATION, NOT a web SaaS product.
+
+The final product must be installable and runnable locally on Windows and must be able to work directly with local project folders.
+
+Use:
+
+- Tauri for the desktop application shell
+- React + TypeScript for the UI
+- Tailwind CSS + shadcn/ui for the interface
+- Monaco Editor for the code editor
+- Node.js/TypeScript for the local agent and application logic where appropriate
+
+The application should eventually provide a Cursor-like experience:
+
+1. User selects a local project folder.
+2. Application displays the complete project file tree.
+3. User opens and edits files using Monaco Editor.
+4. User can open multiple editor tabs.
+5. User has an AI Agent chat panel.
+6. The Agent can understand the project.
+7. The Agent can read relevant files.
+8. The Agent can create/edit/delete files with permission.
+9. The Agent can search the project.
+10. The Agent can run terminal commands inside the selected project.
+11. The Agent can read command output and errors.
+12. The Agent can automatically fix errors and retry.
+13. The Agent can use Git.
+14. The Agent can create checkpoints and allow rollback.
+15. The application can run the project and show a browser preview.
+16. The application should support multiple AI providers such as Claude, Gemini, OpenAI and OpenRouter.
+
+IMPORTANT:
+
+Do NOT build a simple AI chatbot.
+
+The core architecture must be designed around an autonomous coding Agent that can perform multi-step tasks on a real software project.
+
+For this first phase, DO NOT implement the full Agent yet.
+
+PHASE 1 — DESKTOP FOUNDATION ONLY
+
+Implement:
+
+- Tauri desktop shell
+- React application
+- Professional dark IDE interface
+- Main window layout
+- Left project/file explorer
+- Center Monaco editor
+- Right AI Agent panel placeholder
+- Bottom terminal panel placeholder
+- Top toolbar
+- Project open-folder button
+- Basic application settings
+- AI provider settings UI placeholder
+
+Create a clean modular architecture for future:
+
+AgentEngine
+AIProvider
+Tool
+Workspace
+ProjectIndexer
+TerminalManager
+GitManager
+FileManager
+PreviewManager
+PermissionManager
+
+The application must be designed to run locally on Windows.
+
+Do NOT depend on Replit services.
+Do NOT create a web-only architecture.
+Do NOT hardcode API keys.
+Do NOT implement fake AI functionality.
+
+For now focus on creating a stable desktop foundation.
+
+Run the project, verify the build, fix all errors, and explain how to run the desktop application locally on Windows.

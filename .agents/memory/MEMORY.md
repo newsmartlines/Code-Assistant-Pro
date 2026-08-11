@@ -1,0 +1,1 @@
+- [Tauri desktop packaging](tauri-desktop-packaging.md) — Tauri context generation requires a real app icon even when bundle icons appear disabled.

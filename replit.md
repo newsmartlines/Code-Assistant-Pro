@@ -1,10 +1,13 @@
-# [Project name]
+# MyCode AI
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+MyCode AI is a desktop-first coding workspace with an editor, explorer, agent surface, terminal, settings, and a Tauri v2 shell for local Windows project work.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/mycode-ai run dev` — run the browser preview
+- `pnpm --filter @workspace/mycode-ai run desktop:dev` — run the Tauri desktop shell locally
+- `pnpm --filter @workspace/mycode-ai run desktop:build` — build Windows installers
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,15 +25,21 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/mycode-ai/src/App.tsx` — active Phase 2 workspace entry
+- `artifacts/mycode-ai/src/AppPhase2.tsx` — explorer, tabs, editor, terminal, Git, settings, and Agent placeholder
+- `artifacts/mycode-ai/src/index.css` — dark IDE theme and responsive layout
+- `artifacts/mycode-ai/src/native/contracts.ts` — future AgentEngine, AIProvider, Tool, Workspace, indexing, terminal, Git, file, preview, and permission boundaries
+- `artifacts/mycode-ai/src-tauri/` — Tauri v2 Windows desktop shell, native commands, and minimal permissions
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The browser preview is an honest fallback: sample files are editable locally, but native filesystem, terminal, Git, preview, and AI operations are not faked.
+- The desktop shell is Tauri v2 and starts with only core permissions; capabilities should be added behind explicit PermissionManager decisions.
+- Native boundaries are represented by TypeScript contracts so future provider and workspace implementations can be swapped without coupling the UI to one vendor.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Phase 2 provides a professional dark IDE workspace with local folder opening, a real constrained file tree, file/folder create-rename-delete actions, multi-tab editing, save and external-change detection, a working-directory terminal, basic Git status/diff, settings, provider selection, and an intentionally disabled Agent placeholder.
 
 ## User preferences
 
@@ -38,7 +47,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Windows desktop builds require Rust, Microsoft Visual Studio Build Tools with Desktop development with C++, and WebView2.
+- The frontend can be previewed in Replit, but local folders and native commands only become available inside the Tauri shell.
 
 ## Pointers
 

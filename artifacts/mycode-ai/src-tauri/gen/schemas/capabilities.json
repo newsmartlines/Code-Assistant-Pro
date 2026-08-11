@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Minimal phase-1 permissions for the MyCode AI desktop shell.","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MyCode AI"
+description = "A desktop-first AI coding IDE foundation inspired by Cursor, with a project explorer, code editor workspace, agent panel, terminal area, and settings surface ready for a future Tauri shell."
+version = "1.0.0"
+id = "artifacts/mycode-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19691
+
+[services.development]
+run = "pnpm --filter @workspace/mycode-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mycode-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mycode-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19691"
+BASE_PATH = "/"
