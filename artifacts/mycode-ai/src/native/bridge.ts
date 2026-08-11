@@ -5,6 +5,11 @@ import type {
   CommandResult,
   FileSnapshot,
   GitSummary,
+  AgentApplyInput,
+  AgentDiff,
+  AgentPlan,
+  AgentProviderStatus,
+  AgentVerification,
   WorkspaceSnapshot,
 } from './contracts';
 
@@ -96,4 +101,33 @@ export async function getGitStatus(root: string) {
 
 export async function getGitDiff(root: string) {
   return invoke<string>('git_diff_command', { root });
+}
+
+export async function getAgentProviderStatus(provider: string) {
+  return invoke<AgentProviderStatus>('agent_provider_status_command', { provider });
+}
+
+export async function askAgent(input: {
+  root: string;
+  provider: string;
+  prompt: string;
+  feedback?: string;
+}) {
+  return invoke<AgentPlan>('agent_ask_command', { input });
+}
+
+export async function previewAgentPlan(root: string, plan: AgentPlan) {
+  return invoke<AgentDiff>('agent_preview_command', { root, plan });
+}
+
+export async function applyAgentPlan(input: AgentApplyInput) {
+  return invoke<AgentDiff>('agent_apply_command', { input });
+}
+
+export async function verifyAgentPlan(input: {
+  root: string;
+  workingDirectory: string;
+  commands: string[];
+}) {
+  return invoke<AgentVerification[]>('agent_verify_command', { input });
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Activity,
+  AlertTriangle,
   Bot,
   Check,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   FolderPlus,
   GitBranch,
   Info,
+  LoaderCircle,
   MessageSquare,
   Minus,
   PanelLeft,
@@ -36,19 +38,28 @@ import {
 
 import {
   chooseWorkspaceFolder,
+  applyAgentPlan,
+  askAgent,
   createWorkspaceEntry,
   deleteWorkspaceEntry,
   getGitDiff,
   getGitStatus,
+  getAgentProviderStatus,
   isDesktopRuntime,
   loadWorkspace,
   readWorkspaceFile,
   renameWorkspaceEntry,
   runWorkspaceCommand,
+  previewAgentPlan,
+  verifyAgentPlan,
   writeWorkspaceFile,
 } from '@/native/bridge';
 import type {
   CommandResult,
+  AgentDiff,
+  AgentPlan,
+  AgentProviderStatus,
+  AgentVerification,
   GitSummary,
   WorkspaceNode,
   WorkspaceSnapshot,
@@ -320,6 +331,13 @@ function AppPhase2() {
     unstagedCount: 0,
     rawStatus: '',
   });
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<AgentProviderStatus | null>(null);
+  const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
+  const [agentDiff, setAgentDiff] = useState<AgentDiff | null>(null);
+  const [agentVerifications, setAgentVerifications] = useState<AgentVerification[]>([]);
+  const [agentFeedback, setAgentFeedback] = useState('');
 
   const activeFile = files.find((file) => file.path === activePath) ?? files[0] ?? emptyFile;
   const lineCount = useMemo(
@@ -407,6 +425,16 @@ function AppPhase2() {
     }, 2200);
     return () => window.clearInterval(timer);
   }, [activeFile, desktop, dirtyPaths, modifiedAt, showNotice, workspaceRoot]);
+
+  useEffect(() => {
+    if (!desktop) {
+      setAgentStatus(null);
+      return;
+    }
+    void getAgentProviderStatus(provider)
+      .then(setAgentStatus)
+      .catch(() => setAgentStatus(null));
+  }, [desktop, provider]);
 
   const selectNode = async (node: WorkspaceNode) => {
     setSelectedPath(node.relativePath);
@@ -587,6 +615,69 @@ function AppPhase2() {
     }
   };
 
+  const askTheAgent = async (feedback?: string) => {
+    if (!desktop) {
+      showNotice('The Agent runs in the Windows desktop app so provider keys and local files stay native-only.');
+      return;
+    }
+    if (!workspaceRoot) {
+      showNotice('Open a local folder before asking the Agent to inspect or edit it.');
+      return;
+    }
+    const prompt = agentPrompt.trim();
+    if (!prompt && !feedback) return;
+    setAgentBusy(true);
+    setAgentPlan(null);
+    setAgentDiff(null);
+    setAgentVerifications([]);
+    try {
+      const plan = await askAgent({
+        root: workspaceRoot,
+        provider,
+        prompt: prompt || 'Fix the verification failures using the existing workspace context.',
+        feedback,
+      });
+      const diff = await previewAgentPlan(workspaceRoot, plan);
+      setAgentPlan(plan);
+      setAgentDiff(diff);
+      setAgentFeedback('');
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'The Agent could not create a plan.');
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const applyPlan = async () => {
+    if (!workspaceRoot || !agentPlan) return;
+    setAgentBusy(true);
+    try {
+      const diff = await applyAgentPlan({
+        root: workspaceRoot,
+        plan: agentPlan,
+        permissions: ['read-files', 'write-files'],
+      });
+      setAgentDiff(diff);
+      const verification = await verifyAgentPlan({
+        root: workspaceRoot,
+        workingDirectory,
+        commands: agentPlan.commands,
+      });
+      setAgentVerifications(verification);
+      await refreshWorkspace(workspaceRoot);
+      if (verification.some((result) => !result.passed)) {
+        setAgentFeedback(verification.map((result) => `${result.command}\n${result.stderr || result.stdout}`).join('\n\n'));
+      }
+      showNotice(verification.length && verification.every((result) => result.passed)
+        ? 'Agent changes applied and verification passed.'
+        : 'Agent changes applied. Review the verification output.');
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Could not apply the Agent plan.');
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
   const renderTree = (nodes: WorkspaceNode[], depth = 0) => nodes.map((node) => {
     const expanded = node.kind === 'directory' && expandedPaths.includes(node.relativePath);
     return (
@@ -708,26 +799,41 @@ function AppPhase2() {
           </section>
         </div>
 
-        <aside className={`agent ${agentOpen ? '' : 'closed'} flex min-h-0 flex-col`} aria-label="Agent panel">
+          <aside className={`agent ${agentOpen ? '' : 'closed'} flex min-h-0 flex-col`} aria-label="Agent panel">
           <div className="flex h-[45px] items-center justify-between border-b border-[#252c34] px-4">
-            <div className="flex items-center gap-2"><Bot size={16} color="#d5f36a" /><span className="ui-label text-[#cbd5ce]">Agent</span><span className="rounded bg-[#333a32] px-1.5 py-0.5 mono text-[9px] text-[#d5f36a]">NEXT PHASE</span></div>
+            <div className="flex items-center gap-2"><Bot size={16} color="#d5f36a" /><span className="ui-label text-[#cbd5ce]">Agent</span><span className="rounded bg-[#333a32] px-1.5 py-0.5 mono text-[9px] text-[#d5f36a]">PHASE 3</span></div>
             <button className="icon-button h-6 w-6 rounded" onClick={() => setAgentOpen(false)} aria-label="Collapse agent panel"><PanelRight size={14} /></button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="flex flex-col items-center pt-8 text-center">
+            <div className="flex flex-col items-center pt-6 text-center">
               <div className="agent-orbit pulse"><Sparkles size={18} color="#d5f36a" /></div>
-              <h2 className="mt-5 text-[15px] font-semibold tracking-[-.02em] text-[#edf1ed]">Workspace ready for an agent.</h2>
-              <p className="mt-2 max-w-[240px] text-[11px] leading-[1.7] text-[#899397]">The local context layer is now in place. Provider connections and autonomous tools come next.</p>
+              <h2 className="mt-5 text-[15px] font-semibold tracking-[-.02em] text-[#edf1ed]">Ask the workspace Agent.</h2>
+              <p className="mt-2 max-w-[240px] text-[11px] leading-[1.7] text-[#899397]">The Agent reads local context, proposes a structured plan, and waits for your approval before changing files.</p>
             </div>
             <div className="agent-card mt-8 p-3.5">
               <div className="flex items-center gap-2 text-[11px] font-semibold text-[#cbd5ce]"><ShieldCheck size={14} color="#79d4cf" /> Connection status</div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#303943] pt-3"><span className="text-[11px] text-[#899397]">Agent engine</span><span className="mono text-[10px] text-[#f1ad74]">not connected</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#303943] pt-3"><span className="text-[11px] text-[#899397]">Agent engine</span><span className={`mono text-[10px] ${agentStatus?.configured ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}`}>{agentStatus?.configured ? 'ready' : desktop ? 'needs provider key' : 'desktop only'}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Workspace context</span><span className="mono text-[10px] text-[#79d4cf]">{workspaceRoot ? 'local folder' : 'sample files'}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Git context</span><span className="mono text-[10px] text-[#79d4cf]">{git.isRepository ? `${git.changedFiles.length} changes` : 'not a repo'}</span></div>
             </div>
-            <div className="mt-5 rounded border border-[#303943] bg-[#171c22] p-3 text-[11px] leading-[1.6] text-[#899397]"><div className="mb-2 flex items-center gap-2 text-[#cbd5ce]"><Activity size={14} color="#d5f36a" /> What will arrive here</div>Read files, explain code, review diffs, and make permissioned changes once the provider engine is connected.</div>
+            {agentStatus && !agentStatus.configured && <div className="mt-5 rounded border border-[#5a4534] bg-[#2a211b] p-3 text-[11px] leading-[1.6] text-[#c6a98d]"><div className="mb-2 flex items-center gap-2 text-[#f1ad74]"><AlertTriangle size={14} /> Provider configuration</div>{agentStatus.message}</div>}
+            {agentPlan && <div className="agent-card mt-5 p-3.5">
+              <div className="flex items-start justify-between gap-3"><div><div className="ui-label text-[#d5f36a]">Reviewable plan</div><div className="mt-2 text-[12px] font-semibold text-[#edf1ed]">{agentPlan.summary}</div></div><span className="mono text-[9px] text-[#79d4cf]">{agentPlan.edits.length} file edits</span></div>
+              <div className="mt-3 space-y-1.5">{agentPlan.steps.slice(0, 5).map((step, index) => <div key={`${step}-${index}`} className="flex gap-2 text-[10px] leading-[1.5] text-[#aeb9b2]"><span className="mono text-[#d5f36a]">{index + 1}.</span><span>{step}</span></div>)}</div>
+              {agentDiff && <div className="mt-3 rounded border border-[#303943] bg-[#111419] p-2.5"><div className="flex items-center justify-between text-[10px] text-[#899397]"><span>Diff preview</span><span className="mono text-[#d5f36a]">+{agentDiff.additions} / -{agentDiff.removals}</span></div><pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap mono text-[9px] leading-[1.5] text-[#9aa4a5]">{agentDiff.text}</pre></div>}
+              {agentPlan.edits.length > 0 && <button className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-[#d5f36a] px-3 py-2 text-[11px] font-bold text-[#111419] hover:bg-[#e1f992]" onClick={() => void applyPlan()} disabled={agentBusy}><Check size={13} /> {agentBusy ? 'Applying…' : 'Approve & apply changes'}</button>}
+              {agentVerifications.length > 0 && <div className="mt-3 space-y-2 border-t border-[#303943] pt-3">{agentVerifications.map((result) => <div key={result.command} className="text-[10px]"><div className={result.passed ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}>{result.passed ? '✓' : '×'} {result.command}</div>{!result.passed && <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap mono text-[9px] text-[#aeb9b2]">{result.stderr || result.stdout}</pre>}</div>)}</div>}
+            </div>}
+            <div className="mt-5 rounded border border-[#303943] bg-[#171c22] p-3 text-[11px] leading-[1.6] text-[#899397]"><div className="mb-2 flex items-center gap-2 text-[#cbd5ce]"><Activity size={14} color="#d5f36a" /> Safe agent loop</div>Search and read context → plan → preview → your approval → apply → verify. Failed checks can be sent back for another iteration.</div>
           </div>
-          <div className="border-t border-[#252c34] p-4"><div className="flex items-center gap-2 rounded border border-[#303943] bg-[#171c22] px-3 py-2 text-[11px] text-[#687278]"><MessageSquare size={14} /><span>Agent input is reserved for the next phase</span></div></div>
+          <div className="border-t border-[#252c34] p-4">
+            {agentFeedback && <button className="mb-2 w-full rounded border border-[#5a4534] px-3 py-2 text-left text-[10px] text-[#f1ad74] hover:border-[#f1ad74]" onClick={() => void askTheAgent(agentFeedback)}>Verification failed — ask Agent to iterate</button>}
+            <div className="flex items-end gap-2 rounded border border-[#303943] bg-[#171c22] p-2">
+              <MessageSquare size={14} className="mb-1 text-[#79d4cf]" />
+              <textarea className="agent-input" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder={desktop ? 'Ask to explain, fix, or change this workspace…' : 'Open the Windows desktop app to use Agent'} disabled={!desktop || agentBusy} rows={2} aria-label="Agent request" />
+              <button className="icon-button h-7 w-7 shrink-0 rounded" onClick={() => void askTheAgent()} disabled={!desktop || agentBusy || !agentPrompt.trim()} aria-label="Send Agent request">{agentBusy ? <LoaderCircle className="animate-spin" size={14} /> : <Sparkles size={14} />}</button>
+            </div>
+          </div>
         </aside>
       </section>
 
@@ -762,13 +868,13 @@ function SettingsPanel({ provider, setProvider, telemetry, setTelemetry, minimap
         <div className="mt-5">
           <label className="mb-2 block text-[11px] font-semibold text-[#cbd5ce]" htmlFor="provider-select">Preferred provider</label>
           <select id="provider-select" className="setting-select" value={provider} onChange={(event) => setProvider(event.target.value)}><option value="anthropic">Anthropic</option><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option></select>
-          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">Credentials and model routing will be owned by the native agent service in the next phase.</p>
+          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">Provider keys are read only by the native desktop Agent service and are never sent through the browser preview.</p>
         </div>
       </div>
       <div className="setting-section">
         <div className="ui-label text-[#687278]">Native services</div>
         <div className="mt-4 rounded border border-[#303943] bg-[#151a1f] p-4">
-          <div className="flex items-start gap-3"><Zap size={16} color="#79d4cf" /><div><div className="text-[12px] font-semibold text-[#cbd5ce]">Desktop bridge active</div><p className="mt-1 text-[11px] leading-[1.7] text-[#899397]">Workspace files, terminal sessions, and Git are connected through Tauri. Agent permissions remain intentionally disabled.</p></div></div>
+           <div className="flex items-start gap-3"><Zap size={16} color="#79d4cf" /><div><div className="text-[12px] font-semibold text-[#cbd5ce]">Desktop bridge active</div><p className="mt-1 text-[11px] leading-[1.7] text-[#899397]">Workspace files, terminal sessions, Git, provider adapters, reviewable edits, and verification are connected through Tauri.</p></div></div>
         </div>
         <div className="mt-5 flex items-center justify-between"><span className="text-[11px] text-[#687278]">Runtime</span><span className="mono rounded bg-[#333a32] px-2 py-1 text-[10px] text-[#d5f36a]">{isDesktopRuntime() ? 'Windows / Tauri' : 'browser / preview'}</span></div>
       </div>

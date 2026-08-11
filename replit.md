@@ -12,7 +12,8 @@ MyCode AI is a desktop-first coding workspace with an editor, explorer, agent su
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required for the browser preview: no provider credentials are needed because native capabilities are intentionally disabled there.
+- Required for the desktop Agent: one provider key in the native desktop environment — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY`.
 
 ## Stack
 
@@ -37,9 +38,9 @@ MyCode AI is a desktop-first coding workspace with an editor, explorer, agent su
 - The desktop shell is Tauri v2 and starts with only core permissions; capabilities should be added behind explicit PermissionManager decisions.
 - Native boundaries are represented by TypeScript contracts so future provider and workspace implementations can be swapped without coupling the UI to one vendor.
 
-## Product
+## Agent Core (Phase 3)
 
-Phase 2 provides a professional dark IDE workspace with local folder opening, a real constrained file tree, file/folder create-rename-delete actions, multi-tab editing, save and external-change detection, a working-directory terminal, basic Git status/diff, settings, provider selection, and an intentionally disabled Agent placeholder.
+Phase 3 adds a provider-agnostic native Agent Engine. It searches and reads a constrained local workspace, asks Anthropic, OpenAI, Gemini, or OpenRouter for a structured JSON plan, previews complete-file edits as a diff, waits for explicit user approval, applies safe multi-file changes (including new files), runs allowlisted verification commands, and exposes failed output for another feedback iteration. Provider keys are read by Tauri only and are never handled by the browser preview.
 
 ## User preferences
 
@@ -49,6 +50,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 - Windows desktop builds require Rust, Microsoft Visual Studio Build Tools with Desktop development with C++, and WebView2.
 - The frontend can be previewed in Replit, but local folders and native commands only become available inside the Tauri shell.
+- Agent commands and provider adapters are also desktop-only. If a key is missing, the UI reports the exact environment variable to configure.
 
 ## Pointers
 

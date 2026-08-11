@@ -1,14 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent;
 mod filesystem;
 mod git;
 mod terminal;
 mod types;
 
+use agent::{AgentApplyInput, AgentAskInput, AgentVerifyInput};
 use filesystem::{create_entry, delete_entry, load_workspace, read_file, rename_entry, write_file};
 use git::{git_diff, git_status};
 use terminal::execute_terminal;
-use types::{CommandResult, FileSnapshot, GitSummary, NativeStatus, WorkspaceSnapshot};
+use types::{
+    AgentDiff, AgentPlan, AgentProviderStatus, AgentVerification, CommandResult, FileSnapshot,
+    GitSummary, NativeStatus, WorkspaceSnapshot,
+};
 
 #[tauri::command]
 fn native_status() -> NativeStatus {
@@ -79,6 +84,31 @@ fn git_diff_command(root: String) -> Result<String, String> {
     git_diff(&root)
 }
 
+#[tauri::command]
+fn agent_provider_status_command(provider: String) -> AgentProviderStatus {
+    agent::provider_status(&provider)
+}
+
+#[tauri::command]
+fn agent_ask_command(input: AgentAskInput) -> Result<AgentPlan, String> {
+    agent::ask(input)
+}
+
+#[tauri::command]
+fn agent_preview_command(root: String, plan: AgentPlan) -> Result<AgentDiff, String> {
+    agent::preview(&root, &plan)
+}
+
+#[tauri::command]
+fn agent_apply_command(input: AgentApplyInput) -> Result<AgentDiff, String> {
+    agent::apply(input)
+}
+
+#[tauri::command]
+fn agent_verify_command(input: AgentVerifyInput) -> Result<Vec<AgentVerification>, String> {
+    agent::verify(input)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -92,7 +122,12 @@ pub fn run() {
             delete_entry_command,
             execute_terminal_command,
             git_status_command,
-            git_diff_command
+            git_diff_command,
+            agent_provider_status_command,
+            agent_ask_command,
+            agent_preview_command,
+            agent_apply_command,
+            agent_verify_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyCode AI");

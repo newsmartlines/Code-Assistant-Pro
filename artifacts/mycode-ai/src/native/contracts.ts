@@ -159,3 +159,47 @@ export interface GitSummary {
   unstagedCount: number;
   rawStatus: string;
 }
+
+export interface AgentEdit {
+  path: string;
+  content: string;
+  reason: string;
+}
+
+export interface AgentPlan {
+  provider: string;
+  model: string;
+  summary: string;
+  steps: string[];
+  edits: AgentEdit[];
+  commands: string[];
+  contextFiles: string[];
+}
+
+export interface AgentApplyInput {
+  root: string;
+  plan: AgentPlan;
+  permissions: string[];
+}
+
+export interface AgentDiff {
+  text: string;
+  files: string[];
+  additions: number;
+  removals: number;
+}
+
+export interface AgentProviderStatus {
+  provider: string;
+  model: string;
+  configured: boolean;
+  message: string;
+}
+
+export interface AgentVerification {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  passed: boolean;
+}

@@ -58,6 +58,8 @@ button:disabled { cursor: not-allowed; }
 .main-column { min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .agent { width: 342px; background: rgba(25,30,36,.84); border-left: 1px solid var(--line-soft); transition: width .25s ease, opacity .2s ease; }
 .agent.closed { width: 0; overflow: hidden; opacity: 0; border-left: 0; }
+.agent-input { min-width: 0; flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: #cbd5ce; font-size: 11px; line-height: 1.5; }
+.agent-input::placeholder { color: #687278; }
 .terminal { min-height: 165px; border-top: 1px solid var(--line-soft); background: rgba(13,16,20,.7); transition: min-height .22s ease, opacity .2s ease; }
 .terminal.closed { min-height: 33px; }
 .terminal.closed .terminal-body { opacity: 0; pointer-events: none; height: 0; overflow: hidden; }
