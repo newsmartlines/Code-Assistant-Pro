@@ -4,7 +4,7 @@ MyCode AI is a desktop-first coding workspace with an editor, explorer, agent su
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
 - `pnpm --filter @workspace/mycode-ai run dev` — run the browser preview
 - `pnpm --filter @workspace/mycode-ai run desktop:dev` — run the Tauri desktop shell locally
 - `pnpm --filter @workspace/mycode-ai run desktop:build` — build Windows installers

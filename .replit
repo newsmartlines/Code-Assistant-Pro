@@ -30,8 +30,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=5173 BASE_PATH=/ pnpm --filter @workspace/mycode-ai run dev"
-waitForPort = 5173
+args = "PORT=19691 BASE_PATH=/ pnpm --filter @workspace/mycode-ai run dev"
+waitForPort = 19691
 
 [workflows.workflow.metadata]
 outputType = "webview"
