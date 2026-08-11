@@ -1,0 +1,742 @@
+Continue building Code Assistant Pro from the CURRENT project state.
+
+THIS IS STAGE 3 — REAL AI AGENT + API INTEGRATION.
+
+IMPORTANT:
+Do NOT restart the project.
+Do NOT redesign the UI.
+Do NOT remove existing functionality.
+Do NOT modify the Tauri architecture.
+Do NOT undo the Windows fixes already implemented.
+Do NOT commit.
+Do NOT push.
+Do NOT reset the repository.
+
+The goal of this stage is to make the existing Agent a REAL AI Agent connected to the existing AI API/provider.
+
+==================================================
+1. INSPECT THE CURRENT PROJECT FIRST
+==================================================
+
+Before changing anything, inspect the current implementation.
+
+Find:
+
+- Agent UI
+- Chat panel
+- Agent state
+- AI provider/service
+- Existing API routes
+- Existing AI SDK usage
+- Environment variables
+- Workspace state
+- Current file system abstraction
+- Browser Preview implementation
+- Desktop/Tauri implementation
+- Existing tool/function infrastructure
+
+Determine exactly:
+
+- How the Agent currently sends messages.
+- Whether an AI API is already configured.
+- Which provider/model is currently used.
+- Whether streaming exists.
+- Whether tool calling/function calling exists.
+- Whether Agent messages are currently mocked.
+- Whether the Agent already has access to project files.
+
+DO NOT assume.
+
+Reuse existing implementations whenever possible.
+
+==================================================
+2. REAL AI API CONNECTION
+==================================================
+
+If an AI API/provider already exists:
+
+USE IT.
+
+Do not replace it.
+
+If the project already has an AI service, connect the Agent to that service.
+
+If no provider is currently configured:
+
+Build the provider abstraction without inventing credentials.
+
+Do NOT hardcode API keys.
+
+Do NOT expose API keys in React/browser code.
+
+API secrets must remain server-side or in the appropriate secure environment configuration.
+
+==================================================
+3. AGENT REQUEST FLOW
+==================================================
+
+The intended architecture is:
+
+User
+ ↓
+Agent UI
+ ↓
+Agent Runtime
+ ↓
+AI Provider
+ ↓
+Model
+ ↓
+Agent response
+ ↓
+Agent UI
+
+For a simple question:
+
+User:
+"Explain this project."
+
+The Agent should send a REAL request to the configured AI provider.
+
+Do NOT return hardcoded/mock responses.
+
+==================================================
+4. STREAMING
+==================================================
+
+If the existing AI provider supports streaming:
+
+Use streaming.
+
+The UI should show the response progressively.
+
+Example:
+
+Agent:
+"I'll inspect the project..."
+
+then streamed response appears progressively.
+
+If streaming is not currently available:
+
+Do NOT fake streaming.
+
+Implement normal request/response first and keep the architecture ready for streaming later.
+
+==================================================
+5. SYSTEM PROMPT
+==================================================
+
+Create a proper Agent system prompt.
+
+The Agent should understand that it is operating inside:
+
+Code Assistant Pro
+
+It should know:
+
+- It is a coding assistant.
+- It works with the user's currently selected project.
+- File paths are project-relative.
+- It must not invent files.
+- It must not claim to have executed commands unless they actually executed.
+- It must not claim to have modified files unless modification actually happened.
+- It must clearly distinguish analysis from actual execution.
+
+The Agent should prefer inspecting project files before guessing about project-specific questions.
+
+==================================================
+6. CURRENT PROJECT CONTEXT
+==================================================
+
+When a project is open, provide the Agent with minimal useful workspace context.
+
+For example:
+
+Project:
+Code Assistant Pro
+
+Current file:
+src/App.tsx
+
+Selected project:
+Available
+
+Current open files:
+...
+
+Do NOT send the entire project automatically.
+
+Do NOT send absolute Windows paths.
+
+Use relative paths.
+
+==================================================
+7. CURRENT FILE CONTEXT
+==================================================
+
+If the user has a file open and asks:
+
+"Explain this file."
+
+The Agent should receive the current file context or use the filesystem tool to read it.
+
+If the file is small:
+
+Provide its contents.
+
+If the file is large:
+
+Use a controlled file-read mechanism.
+
+Do not blindly send huge files to the model.
+
+==================================================
+8. REAL AGENT TOOLS
+==================================================
+
+Implement or connect the Agent to real tools.
+
+At minimum:
+
+read_file
+list_directory
+search_files
+
+If the existing architecture already has tools, reuse them.
+
+Tool execution must be REAL.
+
+Never create UI-only fake tool calls.
+
+--------------------------------------------------
+read_file
+--------------------------------------------------
+
+Input:
+
+{
+  "path": "src/App.tsx"
+}
+
+Behavior:
+
+- Read the real file.
+- Return its contents.
+- Use project-relative paths.
+- Prevent path traversal.
+- Never allow access outside the selected project.
+
+--------------------------------------------------
+list_directory
+--------------------------------------------------
+
+Input:
+
+{
+  "path": "src"
+}
+
+Return the real directory contents.
+
+Ignore generated directories such as:
+
+node_modules
+.git
+target
+dist
+build
+.next
+coverage
+.cache
+
+--------------------------------------------------
+search_files
+--------------------------------------------------
+
+Input:
+
+{
+  "query": "authentication"
+}
+
+Search the actual project.
+
+Return useful matches:
+
+- path
+- line number if available
+- snippet
+
+Do not search:
+
+node_modules
+.git
+target
+dist
+build
+.next
+coverage
+
+==================================================
+9. TOOL CALLING
+==================================================
+
+The Agent must be capable of deciding when to use a tool.
+
+Example:
+
+User:
+"Where is authentication implemented?"
+
+Expected behavior:
+
+Agent
+→ search_files("authentication")
+
+Tool result:
+
+src/auth/auth.ts
+src/hooks/useAuth.ts
+src/pages/Login.tsx
+
+Agent then reads relevant files if necessary.
+
+The final answer should be based on the actual tool results.
+
+Do NOT make up tool results.
+
+==================================================
+10. TOOL CALL VISIBILITY
+==================================================
+
+Keep the existing Agent UI.
+
+Do not redesign it.
+
+But expose useful tool activity.
+
+Example:
+
+Agent
+────────────────────────
+
+Searching project...
+✓ search_files("authentication")
+
+Reading:
+✓ src/auth/auth.ts
+
+Reading:
+✓ src/hooks/useAuth.ts
+
+Analyzing...
+
+Then:
+
+Authentication is handled in...
+
+These statuses must correspond to REAL operations.
+
+Never display fake tool activity.
+
+==================================================
+11. CONVERSATION MEMORY
+==================================================
+
+The Agent should maintain conversation context during the current session.
+
+Example:
+
+User:
+"Find the authentication code."
+
+Agent finds:
+
+src/auth/auth.ts
+
+User:
+"Explain it."
+
+The Agent should understand that "it" refers to the authentication implementation previously found.
+
+User:
+"Are there security problems?"
+
+The Agent should continue from the existing context.
+
+Do not resend unnecessary large file contents on every message.
+
+==================================================
+12. BROWSER PREVIEW MODE
+==================================================
+
+Detect Browser Preview mode.
+
+In Browser Preview:
+
+Allowed:
+
+- read selected project files
+- list directories
+- search files
+- analyze code
+- answer questions
+
+NOT allowed:
+
+- OS terminal execution
+- arbitrary filesystem access
+- access outside selected directory
+
+If the Agent needs terminal execution, return:
+
+"Terminal execution is available only in Desktop/Tauri mode."
+
+Do NOT pretend a command ran.
+
+==================================================
+13. DESKTOP / TAURI MODE
+==================================================
+
+Detect Tauri/Desktop mode.
+
+Continue using the existing Desktop filesystem implementation.
+
+Do NOT replace it with browser APIs.
+
+Do NOT remove existing native functionality.
+
+If a real terminal implementation already exists, preserve it.
+
+For this stage, do not introduce unrestricted automatic command execution unless the existing architecture already safely supports it.
+
+==================================================
+14. SECURITY
+==================================================
+
+CRITICAL:
+
+Never expose API keys in frontend code.
+
+Never put secrets in:
+
+- React components
+- Vite environment variables exposed to the browser
+- client-side source files
+- Git commits
+
+Keep provider secrets server-side or in secure environment variables.
+
+Do not automatically send:
+
+.env
+.env.local
+credentials
+private keys
+certificates
+
+to the AI.
+
+Never access files outside the selected workspace.
+
+Block paths such as:
+
+../../secret.txt
+
+==================================================
+15. AI PROVIDER ERROR HANDLING
+==================================================
+
+Handle:
+
+- missing API key
+- invalid API key
+- rate limit
+- provider error
+- timeout
+- network failure
+- malformed response
+- tool failure
+
+The UI should show a clear error.
+
+Example:
+
+"AI provider is not configured."
+
+or:
+
+"AI request failed. Please check the configured provider."
+
+Never show:
+
+"Success"
+
+when the request failed.
+
+==================================================
+16. CANCEL REQUEST
+==================================================
+
+If the current architecture supports AbortController or cancellation:
+
+Use it.
+
+Add/maintain a Stop button.
+
+When the user clicks Stop:
+
+- abort the request
+- stop streaming if active
+- stop tool processing if possible
+- return the UI to an idle state
+
+Do not leave the Agent permanently stuck on:
+
+"Thinking..."
+
+==================================================
+17. NO FILE MODIFICATION YET
+==================================================
+
+IMPORTANT:
+
+DO NOT implement automatic code modification in this stage.
+
+The Agent should currently be able to:
+
+✓ receive a real user request
+✓ call the real AI API
+✓ understand project context
+✓ call real read/search/list tools
+✓ analyze files
+✓ answer the user
+
+But it should NOT yet automatically:
+
+- rewrite files
+- apply patches
+- overwrite files
+- delete files
+
+That will be the next stage.
+
+==================================================
+18. EXAMPLE TESTS
+==================================================
+
+After implementation, test these REAL scenarios.
+
+TEST 1:
+
+User:
+"Hello"
+
+Expected:
+A real AI API response.
+
+TEST 2:
+
+User:
+"What project am I working on?"
+
+Expected:
+Agent uses available workspace context.
+
+TEST 3:
+
+Open a real source file.
+
+Then ask:
+
+"Explain this file."
+
+Expected:
+Agent analyzes the actual file.
+
+TEST 4:
+
+Ask:
+
+"Where is the main application entry point?"
+
+Expected:
+Agent searches the actual project.
+
+TEST 5:
+
+Ask:
+
+"Find authentication-related code."
+
+Expected:
+
+search_files
+
+then possibly:
+
+read_file
+
+then a real explanation.
+
+TEST 6:
+
+Ask:
+
+"Does this project use Tailwind?"
+
+Expected:
+Agent inspects actual project files/configuration.
+
+TEST 7:
+
+Ask:
+
+"Run npm install."
+
+In Browser Preview:
+
+Agent MUST NOT execute it.
+
+It should say:
+
+"Terminal execution is available only in Desktop/Tauri mode."
+
+No fake execution.
+
+==================================================
+19. BROWSER + DESKTOP COMPATIBILITY
+==================================================
+
+The same Agent architecture should work with:
+
+BrowserFileSystemProvider
+
+and:
+
+DesktopFileSystemProvider
+
+Use the provider abstraction.
+
+Do not duplicate the entire Agent implementation for Browser and Desktop.
+
+Only the underlying filesystem/terminal capabilities should differ.
+
+==================================================
+20. PERFORMANCE
+==================================================
+
+Do not send the entire project to the AI.
+
+Do not recursively read every file when a project opens.
+
+Use tools on demand.
+
+The normal flow should be:
+
+Question
+→ determine needed information
+→ search/read relevant files
+→ answer
+
+not:
+
+Question
+→ upload entire repository.
+
+==================================================
+21. TYPESCRIPT
+==================================================
+
+Use strong TypeScript types.
+
+Create clear types for:
+
+AgentMessage
+AgentTool
+AgentToolCall
+AgentToolResult
+AgentRequest
+AgentResponse
+AgentContext
+
+Avoid any where practical.
+
+==================================================
+22. TESTING COMMANDS
+==================================================
+
+Run:
+
+pnpm install
+
+Then:
+
+pnpm run typecheck
+
+Then the appropriate Vite/build command.
+
+If the project has existing tests:
+
+run the relevant tests.
+
+Then test Browser Preview.
+
+If Windows/Tauri is available in the current environment, test it.
+
+Otherwise explicitly report that it was not tested.
+
+DO NOT claim Windows/Tauri functionality was tested unless you actually executed it.
+
+==================================================
+23. GIT SAFETY
+==================================================
+
+Before modifying anything:
+
+git status
+
+Do NOT:
+
+git reset --hard
+git clean -fd
+git checkout -- .
+git commit
+git push
+
+Do not remove or overwrite existing user changes.
+
+At the end run:
+
+git status
+
+==================================================
+24. FINAL REPORT
+==================================================
+
+At the end report exactly:
+
+1. AI provider discovered:
+2. API integration status:
+3. Agent runtime created/updated:
+4. Tools implemented:
+5. Files changed:
+6. Browser Preview behavior:
+7. Desktop/Tauri behavior:
+8. Security protections:
+9. Tests actually executed:
+10. Tests NOT executed:
+11. Known limitations:
+12. What remains for Stage 4:
+
+MOST IMPORTANT:
+
+Do not tell me the Agent works merely because the Agent UI exists.
+
+It is only considered working if a real AI API request is successfully processed and the Agent can use real project context/tools.
+
+Do not fake AI responses.
+Do not fake tool calls.
+Do not fake terminal execution.
+Do not fake successful API calls.

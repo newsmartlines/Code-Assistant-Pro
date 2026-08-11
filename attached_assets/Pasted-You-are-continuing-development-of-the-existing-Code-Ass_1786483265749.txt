@@ -1,0 +1,455 @@
+You are continuing development of the existing Code Assistant Pro project.
+
+IMPORTANT CONTEXT:
+- The project is already working in Browser Preview at http://127.0.0.1:1420
+- The project is also working in Windows/Tauri Desktop mode.
+- Windows Tauri development was successfully tested.
+- A Windows pnpm spawning issue was fixed in:
+  artifacts/mycode-ai/scripts/desktop-dev.mjs
+  artifacts/mycode-ai/scripts/desktop-build.mjs
+- Those fixes are already committed and pushed to GitHub in commit:
+  103bee6 - "Fix Windows Tauri pnpm process spawning"
+- DO NOT undo, replace, or simplify those fixes.
+- DO NOT change the Tauri architecture.
+- DO NOT remove any existing Desktop functionality.
+- DO NOT modify the working Windows spawn implementation unless absolutely required by a verified bug.
+
+Your job now is to continue improving the existing application, not rebuild it from scratch.
+
+==================================================
+1. FIRST: INSPECT THE EXISTING PROJECT
+==================================================
+
+Before changing anything:
+
+- Inspect the current repository structure.
+- Inspect package.json.
+- Inspect pnpm-workspace.yaml.
+- Inspect artifacts/mycode-ai.
+- Inspect the current React/Vite frontend.
+- Inspect the Tauri configuration.
+- Inspect src-tauri.
+- Inspect the current Browser Preview / Web Fallback implementation.
+- Inspect the current filesystem abstraction/provider implementation if it exists.
+- Inspect the current editor implementation.
+- Inspect the current file tree implementation.
+- Inspect the current terminal implementation.
+- Inspect recent Git history.
+
+DO NOT make assumptions about existing code.
+
+Reuse the current architecture and components wherever possible.
+
+==================================================
+2. PROTECT THE TWO EXECUTION MODES
+==================================================
+
+The application must support two modes:
+
+A) Browser Preview Mode
+B) Desktop/Tauri Mode
+
+Browser Preview:
+- Runs in Chrome at:
+  http://127.0.0.1:1420
+
+Desktop:
+- Runs through Tauri on Windows.
+
+The application must automatically detect the environment.
+
+Use the existing architecture if a provider abstraction already exists.
+
+Preferred conceptual structure:
+
+FileSystemProvider
+├── BrowserFileSystemProvider
+└── DesktopFileSystemProvider
+
+Desktop mode:
+- Continue using the existing Tauri filesystem APIs.
+- Continue using the existing native terminal implementation.
+- Continue using native desktop functionality.
+
+Browser mode:
+- Continue using the File System Access API.
+- Never attempt to access arbitrary Windows paths.
+- Never fake terminal execution.
+
+DO NOT replace the Desktop provider with Browser APIs.
+
+==================================================
+3. CURRENT PRIORITY: MAKE THE CODE EDITOR SOLID
+==================================================
+
+Improve the existing editor experience.
+
+Requirements:
+
+- Clicking a source file opens the real file.
+- File contents are loaded from the selected project.
+- Editor must be genuinely editable.
+- Typing must work normally.
+- Cursor movement must work.
+- Selection/copy/paste must work.
+- Ctrl+A must work inside the editor.
+- Ctrl+S must save the current file.
+- Modified files must show an unsaved indicator.
+- Switching files must never silently discard unsaved changes.
+- If a file has unsaved changes and the user attempts to close/switch it, handle it safely.
+- Never silently overwrite modified content.
+
+Support at minimum:
+
+.ts
+.tsx
+.js
+.jsx
+.json
+.css
+.scss
+.html
+.md
+.rs
+.toml
+.yaml
+.yml
+.env
+.env.example
+
+Preserve the existing editor UI and styling.
+
+DO NOT replace the entire editor with a simplistic textarea unless the current architecture already uses one.
+
+If Monaco or another editor library is already installed and used, preserve it.
+
+==================================================
+4. FILE TREE
+==================================================
+
+Improve the existing project file tree.
+
+Requirements:
+
+- Display the actual selected project.
+- Expand/collapse folders.
+- Open files by clicking.
+- Correctly indicate folders/files.
+- Refresh after create/delete/rename operations.
+- Preserve expanded state when possible.
+- Do not reload the entire application unnecessarily.
+
+Ignore generated/cache directories:
+
+node_modules
+.git
+target
+dist
+build
+.next
+coverage
+.cache
+.turbo
+.vite
+and other clearly generated directories.
+
+Do not hide legitimate source directories.
+
+==================================================
+5. FILE OPERATIONS
+==================================================
+
+Implement or improve:
+
+OPEN FILE
+- Open the real file.
+
+CREATE FILE
+- Create a real file in the selected folder.
+- Ask for filename.
+- Validate the filename.
+- Prevent accidental overwrite unless explicitly confirmed.
+- Refresh the tree.
+
+CREATE FOLDER
+- Create a real directory.
+- Ask for folder name.
+- Validate the name.
+- Refresh the tree.
+
+RENAME
+- Rename the actual file/folder.
+- Confirm if necessary.
+- Refresh the tree.
+
+DELETE
+- Confirm destructive operations.
+- Delete the actual file/folder.
+- Never silently delete.
+- Refresh the tree.
+
+Desktop mode:
+- Use Tauri/native filesystem APIs.
+
+Browser mode:
+- Use File System Access API.
+
+==================================================
+6. SAVE SYSTEM
+==================================================
+
+Implement a robust save system.
+
+Ctrl+S must:
+
+1. Detect the current file.
+2. Detect whether it has unsaved changes.
+3. Save the actual file.
+4. Update the file state to saved.
+5. Show a small "Saved" indicator.
+6. Never show "Saved" if the write actually failed.
+7. Display a useful error if saving fails.
+
+Browser mode:
+- Use FileSystemFileHandle.createWritable().
+- Request permissions correctly.
+- Do not upload files anywhere.
+
+Desktop mode:
+- Use the existing Tauri filesystem implementation.
+
+==================================================
+7. UNSAVED CHANGES
+==================================================
+
+Add reliable dirty-state tracking.
+
+Example:
+
+Saved:
+  filename.ts
+
+Modified:
+  filename.ts •
+
+Requirements:
+
+- Dirty state is per file.
+- Switching between files preserves dirty content in memory.
+- Saving one file does not save another.
+- Closing/removing a modified file requires confirmation.
+- Never silently discard changes.
+
+==================================================
+8. TERMINAL
+==================================================
+
+IMPORTANT:
+
+DO NOT FAKE TERMINAL EXECUTION.
+
+Desktop/Tauri:
+- Keep the existing real terminal implementation.
+
+Browser Preview:
+- Detect that native OS terminal execution is unavailable.
+- Display:
+
+"Terminal execution is available only in Desktop/Tauri mode."
+
+Do not pretend that a command ran.
+
+If the current terminal UI exists:
+- Keep the UI.
+- Disable execution controls in Browser Preview.
+- Explain why execution is disabled.
+
+==================================================
+9. CODE ASSISTANT FOUNDATION
+==================================================
+
+After the filesystem/editor behavior is stable, inspect the existing AI/Agent architecture.
+
+Do NOT immediately implement a fake AI.
+
+Prepare the application for a real Code Assistant workflow:
+
+User:
+"Fix this TypeScript error"
+
+Assistant should eventually be able to:
+
+1. Inspect relevant files.
+2. Understand the project.
+3. Explain the problem.
+4. Propose changes.
+5. Show a diff.
+6. Let the user approve/reject.
+7. Apply approved changes.
+8. Save files.
+9. Never modify files silently.
+
+For now, do not invent backend APIs or fake AI responses.
+
+Reuse any existing Agent/Workspace/Preview architecture.
+
+==================================================
+10. UI PRESERVATION
+==================================================
+
+VERY IMPORTANT:
+
+Do NOT redesign Code Assistant Pro.
+
+Keep:
+
+- Existing layout
+- Existing sidebar
+- Existing file tree
+- Existing editor
+- Existing Agent panel
+- Existing Workspace functionality
+- Existing Preview functionality
+- Existing branding
+- Existing navigation
+
+Only improve functionality and fix issues.
+
+Do not replace the UI with a generic IDE template.
+
+==================================================
+11. SECURITY
+==================================================
+
+Browser Preview must:
+
+- Access files only after the user explicitly selects a folder.
+- Never scan arbitrary local paths.
+- Never upload local files.
+- Never send local source code to a remote server unless the existing application explicitly requires it and the user has initiated that operation.
+- Never store project source files remotely.
+- Never expose local filesystem paths to an external service unnecessarily.
+
+Desktop mode must preserve existing permission/security boundaries.
+
+==================================================
+12. DO NOT TOUCH WORKING WINDOWS FIXES
+==================================================
+
+These files contain a verified Windows fix:
+
+artifacts/mycode-ai/scripts/desktop-dev.mjs
+artifacts/mycode-ai/scripts/desktop-build.mjs
+
+DO NOT revert them to:
+
+process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+
+The current working implementation uses:
+
+spawn('pnpm', ...)
+shell: isWindows
+
+and corresponding error handling.
+
+Keep that implementation.
+
+==================================================
+13. DEPENDENCIES
+==================================================
+
+Do not add unnecessary dependencies.
+
+Before installing anything:
+
+- Check whether the project already has an equivalent dependency.
+- Prefer existing libraries/components.
+- Do not upgrade pnpm.
+- Do not perform broad dependency upgrades.
+- Do not regenerate the entire lockfile unless required.
+
+Avoid changing package.json unless necessary for the requested functionality.
+
+==================================================
+14. TESTING
+==================================================
+
+After implementation run:
+
+pnpm install
+
+pnpm run typecheck
+
+Build the frontend.
+
+Verify Browser Preview:
+
+http://127.0.0.1:1420
+
+Test:
+
+1. Open Folder
+2. Select a real project
+3. File tree appears
+4. Expand folder
+5. Open .tsx file
+6. Open .json file
+7. Edit file
+8. Verify dirty indicator
+9. Ctrl+S
+10. Verify file is actually saved
+11. Create File
+12. Create Folder
+13. Rename
+14. Delete
+15. Refresh tree
+16. Switch between modified files
+17. Verify unsaved changes are preserved
+18. Verify terminal correctly says Desktop/Tauri only
+
+Do not claim Windows/Tauri was tested unless the current environment is actually Windows and the commands were executed successfully.
+
+==================================================
+15. GIT SAFETY
+==================================================
+
+Do not commit automatically unless explicitly requested.
+
+Do not run:
+
+git reset --hard
+git clean -fd
+git checkout -- .
+
+Do not delete user changes.
+
+Before modifying anything, inspect git status.
+
+At the end report:
+
+1. Files changed
+2. Why each file changed
+3. Features implemented
+4. Tests actually run
+5. Tests that could not be run
+6. Any remaining issues
+
+==================================================
+16. MOST IMPORTANT RULE
+==================================================
+
+Do not make a large rewrite.
+
+Work incrementally.
+
+First understand the existing implementation.
+
+Then make the smallest safe changes needed.
+
+Preserve the working Browser Preview and Desktop/Tauri modes.
+
+Preserve the existing UI.
+
+Preserve the verified Windows fixes.
+
+Do not claim success without actually testing the relevant behavior.
