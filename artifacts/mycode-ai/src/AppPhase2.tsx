@@ -318,7 +318,7 @@ function AppPhase2() {
   const [terminalOpen, setTerminalOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [provider, setProvider] = useState('anthropic');
+  const [provider, setProvider] = useState('gemini');
   const [telemetry, setTelemetry] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [minimap, setMinimap] = useState(true);
@@ -858,6 +858,7 @@ function AppPhase2() {
             <div className="agent-card mt-8 p-3.5">
               <div className="flex items-center gap-2 text-[11px] font-semibold text-[#cbd5ce]"><ShieldCheck size={14} color="#79d4cf" /> Connection status</div>
               <div className="mt-3 flex items-center justify-between border-t border-[#303943] pt-3"><span className="text-[11px] text-[#899397]">Agent engine</span><span className={`mono text-[10px] ${agentStatus?.configured ? 'text-[#d5f36a]' : 'text-[#f1ad74]'}`}>{agentStatus?.configured ? 'ready' : 'needs provider key'}</span></div>
+               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Provider</span><span className="mono text-[10px] text-[#d5f36a]">{provider === 'gemini' ? 'Google Gemini' : provider}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Workspace context</span><span className="mono text-[10px] text-[#79d4cf]">{workspaceRoot ? 'local folder' : 'sample files'}</span></div>
               <div className="mt-2 flex items-center justify-between"><span className="text-[11px] text-[#899397]">Git context</span><span className="mono text-[10px] text-[#79d4cf]">{git.isRepository ? `${git.changedFiles.length} changes` : 'not a repo'}</span></div>
             </div>
@@ -892,8 +893,8 @@ function AppPhase2() {
             {agentFeedback && <button className="mb-2 w-full rounded border border-[#5a4534] px-3 py-2 text-left text-[10px] text-[#f1ad74] hover:border-[#f1ad74]" onClick={() => void askTheAgent(agentFeedback)}>Verification failed — ask Agent to iterate</button>}
             <div className="flex items-end gap-2 rounded border border-[#303943] bg-[#171c22] p-2">
               <MessageSquare size={14} className="mb-1 text-[#79d4cf]" />
-              <textarea className="agent-input" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder={desktop ? 'Ask to explain, fix, or change this workspace…' : 'Ask about the sample workspace…'} disabled={agentBusy} rows={2} aria-label="Agent request" />
-              <button className="icon-button h-7 w-7 shrink-0 rounded" onClick={() => agentBusy ? stopAgent() : void askTheAgent()} disabled={!agentBusy && !agentPrompt.trim()} aria-label={agentBusy ? 'Stop Agent request' : 'Send Agent request'}>{agentBusy ? <SquareTerminal size={14} /> : <Sparkles size={14} />}</button>
+              <textarea className="agent-input" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if (!agentBusy && agentPrompt.trim()) void askTheAgent(); } }} placeholder={desktop ? 'Ask to explain, fix, or change this workspace…' : 'Ask about the sample workspace…'} disabled={agentBusy} rows={2} aria-label="Agent request" />
+              <button className="icon-button flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px]" onClick={() => agentBusy ? stopAgent() : void askTheAgent()} disabled={!agentBusy && !agentPrompt.trim()} aria-label={agentBusy ? 'Stop Agent request' : 'Send Agent request'}>{agentBusy ? <><SquareTerminal size={14} /> Stop</> : <><Sparkles size={14} /> Send</>}</button>
             </div>
           </div>
         </aside>
