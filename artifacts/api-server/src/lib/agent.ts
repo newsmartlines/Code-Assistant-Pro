@@ -35,6 +35,7 @@ const PROVIDERS: Record<AgentProvider, ProviderConfig> = {
 const MAX_FILE_CHARS = 80_000;
 const MAX_TOOL_RESULT_CHARS = 12_000;
 const MAX_TURNS = 6;
+const PROVIDER_TIMEOUT_MS = 20_000;
 
 const systemPrompt = `You are MyCode AI, a careful coding assistant.
 You are answering from a browser preview with a read-only virtual workspace.
@@ -46,7 +47,7 @@ const toolDefinitions = [
   {
     name: "list_files",
     description: "List all files available in the virtual workspace.",
-    input_schema: { type: "object", properties: {}, additionalProperties: false },
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "read_file",
@@ -55,7 +56,6 @@ const toolDefinitions = [
       type: "object",
       properties: { path: { type: "string", description: "Workspace-relative path" } },
       required: ["path"],
-      additionalProperties: false,
     },
   },
   {
@@ -65,7 +65,6 @@ const toolDefinitions = [
       type: "object",
       properties: { query: { type: "string", description: "Text to search for" } },
       required: ["query"],
-      additionalProperties: false,
     },
   },
 ] as const;
@@ -126,6 +125,15 @@ function toOpenAiMessages(messages: AgentMessage[]) {
   return messages.map((message) => ({ role: message.role, content: message.content }));
 }
 
+function fetchProvider(input: string, init: RequestInit, provider: AgentProvider) {
+  return Promise.race([
+    fetch(input, init),
+    new Promise<Response>((_, reject) => {
+      setTimeout(() => reject(new Error(`${provider} did not respond within ${PROVIDER_TIMEOUT_MS / 1000} seconds.`)), PROVIDER_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 async function providerRequest(
   provider: AgentProvider,
   key: string,
@@ -134,10 +142,12 @@ async function providerRequest(
   signal?: AbortSignal,
 ): Promise<ProviderTurn> {
   const config = PROVIDERS[provider];
+  const requestSignal = signal;
+  console.info(`[agent] requesting ${provider}`);
   if (provider === "anthropic") {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchProvider("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      signal,
+      signal: requestSignal,
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
         model: config.model,
@@ -158,9 +168,9 @@ async function providerRequest(
   }
 
   if (provider === "gemini") {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${encodeURIComponent(key)}`, {
+    const response = await fetchProvider(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${encodeURIComponent(key)}`, {
       method: "POST",
-      signal,
+      signal: requestSignal,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -169,6 +179,7 @@ async function providerRequest(
         generationConfig: { temperature: 0.2 },
       }),
     });
+    console.info(`[agent] ${provider} responded with HTTP ${response.status}`);
     const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }> } }>; error?: { message?: string } };
     if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}: ${payload.error?.message ?? "request failed"}`);
     const parts = payload.candidates?.[0]?.content?.parts ?? [];
@@ -180,9 +191,9 @@ async function providerRequest(
   }
 
   const url = provider === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
-  const response = await fetch(url, {
+  const response = await fetchProvider(url, {
     method: "POST",
-    signal,
+    signal: requestSignal,
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${key}`,
