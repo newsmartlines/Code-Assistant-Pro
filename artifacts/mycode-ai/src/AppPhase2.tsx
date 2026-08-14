@@ -681,7 +681,15 @@ function AppPhase2() {
       if (error instanceof DOMException && error.name === 'AbortError') {
         showNotice('Agent request stopped.');
       } else {
-        showNotice(error instanceof Error ? error.message : 'The Agent could not create a response.');
+        const errorMessage = error instanceof Error ? error.message : 'The Agent could not create a response.';
+        if (!desktop) {
+          setBrowserMessages((current) => [
+            ...current,
+            { role: 'user' as const, content: prompt || 'Agent request' },
+            { role: 'assistant' as const, content: `Request failed: ${errorMessage}` },
+          ].slice(-20));
+        }
+        showNotice(errorMessage);
       }
     } finally {
       browserAbortRef.current = null;

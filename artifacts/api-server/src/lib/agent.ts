@@ -125,13 +125,40 @@ function toOpenAiMessages(messages: AgentMessage[]) {
   return messages.map((message) => ({ role: message.role, content: message.content }));
 }
 
-function fetchProvider(input: string, init: RequestInit, provider: AgentProvider) {
-  return Promise.race([
-    fetch(input, init),
-    new Promise<Response>((_, reject) => {
-      setTimeout(() => reject(new Error(`${provider} did not respond within ${PROVIDER_TIMEOUT_MS / 1000} seconds.`)), PROVIDER_TIMEOUT_MS);
-    }),
-  ]);
+async function fetchProvider(input: string, init: RequestInit, provider: AgentProvider) {
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), PROVIDER_TIMEOUT_MS);
+  const signal = init.signal
+    ? AbortSignal.any([init.signal, timeoutController.signal])
+    : timeoutController.signal;
+
+  try {
+    return await fetch(input, { ...init, signal });
+  } catch (error) {
+    if (timeoutController.signal.aborted && !init.signal?.aborted) {
+      throw new Error(`${provider} did not respond within ${PROVIDER_TIMEOUT_MS / 1000} seconds.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readProviderJson<T>(response: Response, provider: AgentProvider) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      response.json() as Promise<T>,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${provider} did not return a complete response within ${PROVIDER_TIMEOUT_MS / 1000} seconds.`)),
+          PROVIDER_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 async function providerRequest(
@@ -156,8 +183,8 @@ async function providerRequest(
         messages: history.length ? history : messages.map((message) => ({ role: message.role, content: message.content })),
         tools: toolDefinitions,
       }),
-    });
-    const payload = await response.json() as { content?: Array<{ type?: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>; error?: { message?: string } };
+    }, provider);
+    const payload = await readProviderJson<{ content?: Array<{ type?: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>; error?: { message?: string } }>(response, provider);
     if (!response.ok) throw new Error(`Anthropic returned HTTP ${response.status}: ${payload.error?.message ?? "request failed"}`);
     const content = payload.content ?? [];
     return {
@@ -178,9 +205,9 @@ async function providerRequest(
         tools: [{ functionDeclarations: toolDefinitions.map(({ name, description, input_schema }) => ({ name, description, parameters: input_schema })) }],
         generationConfig: { temperature: 0.2 },
       }),
-    });
+    }, provider);
     console.info(`[agent] ${provider} responded with HTTP ${response.status}`);
-    const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }> } }>; error?: { message?: string } };
+    const payload = await readProviderJson<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }> } }>; error?: { message?: string } }>(response, provider);
     if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}: ${payload.error?.message ?? "request failed"}`);
     const parts = payload.candidates?.[0]?.content?.parts ?? [];
     return {
@@ -206,8 +233,8 @@ async function providerRequest(
       tools: toolDefinitions.map(({ name, description, input_schema }) => ({ type: "function", function: { name, description, parameters: input_schema } })),
       tool_choice: "auto",
     }),
-  });
-  const payload = await response.json() as { choices?: Array<{ message?: { content?: string; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>; error?: { message?: string } };
+  }, provider);
+  const payload = await readProviderJson<{ choices?: Array<{ message?: { content?: string; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>; error?: { message?: string } }>(response, provider);
   if (!response.ok) throw new Error(`${provider === "openrouter" ? "OpenRouter" : "OpenAI"} returned HTTP ${response.status}: ${payload.error?.message ?? "request failed"}`);
   const message = payload.choices?.[0]?.message;
   return {
