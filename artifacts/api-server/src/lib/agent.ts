@@ -28,7 +28,7 @@ type ProviderTurn = {
 const PROVIDERS: Record<AgentProvider, ProviderConfig> = {
   anthropic: { envName: "ANTHROPIC_API_KEY", model: "claude-3-5-sonnet-latest" },
   openai: { envName: "OPENAI_API_KEY", model: "gpt-4o-mini" },
-  gemini: { envName: "GEMINI_API_KEY", model: "gemini-3.6-flash" },
+  gemini: { envName: "GEMINI_API_KEY", model: "gemini-2.5-flash" },
   openrouter: { envName: "OPENROUTER_API_KEY", model: "openai/gpt-4o-mini" },
 };
 
@@ -134,10 +134,11 @@ async function fetchProvider(input: string, init: RequestInit, provider: AgentPr
     : timeoutController.signal;
 
   try {
-    return await fetch(input, { ...init, signal });
+    const response = await fetch(input, { ...init, signal });
+    return response;
   } catch (error) {
     if (timeoutController.signal.aborted && !init.signal?.aborted) {
-      throw new Error(`${provider} did not respond within ${PROVIDER_TIMEOUT_MS / 1000} seconds.`);
+      throw new Error(`${provider} did not respond within ${PROVIDER_TIMEOUT_MS / 1000} seconds. Please check the API key and network connection.`);
     }
     throw error;
   } finally {
