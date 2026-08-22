@@ -4,6 +4,7 @@ MyCode AI is a desktop-first coding workspace with an editor, explorer, agent su
 
 ## Run & Operate
 
+- `pnpm install --no-frozen-lockfile` — install workspace dependencies after importing
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
 - `pnpm --filter @workspace/mycode-ai run dev` — run the browser preview
 - `pnpm --filter @workspace/mycode-ai run desktop:dev` — run the Tauri desktop shell locally
@@ -13,6 +14,7 @@ MyCode AI is a desktop-first coding workspace with an editor, explorer, agent su
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - The browser preview includes a read-only Agent path through `/api/agent/ask`. It sends only sample/open-file context to the API server and requires one provider key on the server — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY`.
+- Gemini is configured through the `GEMINI_API_KEY` Replit Secret; do not put the key in source files or commit it.
 - The desktop Agent reads its provider key natively in Tauri and can inspect local files, propose reviewable edits, apply only after approval, and verify allowlisted commands.
 
 ## Stack
