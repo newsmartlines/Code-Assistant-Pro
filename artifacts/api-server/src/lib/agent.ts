@@ -28,7 +28,7 @@ type ProviderTurn = {
 const PROVIDERS: Record<AgentProvider, ProviderConfig> = {
   anthropic: { envName: "ANTHROPIC_API_KEY", model: "claude-3-5-sonnet-latest" },
   openai: { envName: "OPENAI_API_KEY", model: "gpt-4o-mini" },
-  gemini: { envName: "GEMINI_API_KEY", model: "gemini-2.0-flash" },
+  gemini: { envName: "GEMINI_API_KEY", model: "gemini-3.6-flash" },
   openrouter: { envName: "OPENROUTER_API_KEY", model: "openai/gpt-4o-mini" },
 };
 

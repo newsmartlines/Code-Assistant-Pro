@@ -49,7 +49,7 @@ fn provider_key(provider: &str) -> Option<(&'static str, &'static str)> {
     match provider {
         "anthropic" => Some(("ANTHROPIC_API_KEY", "claude-3-5-sonnet-latest")),
         "openai" => Some(("OPENAI_API_KEY", "gpt-4o-mini")),
-        "gemini" => Some(("GEMINI_API_KEY", "gemini-2.0-flash")),
+        "gemini" => Some(("GEMINI_API_KEY", "gemini-3.6-flash")),
         "openrouter" => Some(("OPENROUTER_API_KEY", "openai/gpt-4o-mini")),
         _ => None,
     }
