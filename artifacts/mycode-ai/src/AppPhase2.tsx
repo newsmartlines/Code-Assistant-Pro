@@ -321,7 +321,13 @@ function AppPhase2() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [provider, setProvider] = useState('gemini');
-  const [providerApiKey, setProviderApiKey] = useState('');
+  const [providerApiKey, setProviderApiKey] = useState(() => {
+    try {
+      return window.sessionStorage.getItem('mycode-ai-provider-key:gemini') ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [telemetry, setTelemetry] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
@@ -385,6 +391,7 @@ function AppPhase2() {
         provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter',
         apiKey: providerApiKey,
       });
+      window.sessionStorage.setItem(`mycode-ai-provider-key:${provider}`, providerApiKey.trim());
       setAgentStatus(status);
       setProviderApiKey('');
       setSettingsOpen(false);
@@ -475,6 +482,21 @@ function AppPhase2() {
     void statusRequest
       .then(setAgentStatus)
       .catch(() => setAgentStatus(null));
+  }, [desktop, provider]);
+
+  useEffect(() => {
+    let storedKey = '';
+    try {
+      storedKey = window.sessionStorage.getItem(`mycode-ai-provider-key:${provider}`) ?? '';
+    } catch {
+      storedKey = '';
+    }
+    setProviderApiKey(storedKey);
+    if (!storedKey || desktop) return;
+    void configureAgentKey({
+      provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter',
+      apiKey: storedKey,
+    }).then(setAgentStatus).catch(() => undefined);
   }, [desktop, provider]);
 
   useEffect(() => {
@@ -670,6 +692,12 @@ function AppPhase2() {
     setAgentBusy(true);
     try {
       if (!desktop) {
+        if (providerApiKey.trim()) {
+          await configureAgentKey({
+            provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter',
+            apiKey: providerApiKey,
+          });
+        }
         const nextUserMessage: AgentMessage = {
           role: 'user',
           content: prompt || 'Please address the verification feedback from the previous response.',
