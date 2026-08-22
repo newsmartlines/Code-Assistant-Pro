@@ -34,6 +34,8 @@ import {
   X,
   Pencil,
   Zap,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 import {
@@ -319,6 +321,7 @@ function AppPhase2() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [provider, setProvider] = useState('gemini');
+  const [providerApiKey, setProviderApiKey] = useState('');
   const [telemetry, setTelemetry] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [minimap, setMinimap] = useState(true);
@@ -914,12 +917,21 @@ function AppPhase2() {
       </footer>
 
       {notice && <div className="notice fixed bottom-9 left-1/2 z-30 flex max-w-[560px] -translate-x-1/2 items-center gap-2 rounded px-4 py-2.5 text-[11px] shadow-xl"><Info size={14} /><span>{notice}</span><button className="ml-2 text-[#dce9bf] opacity-70 hover:opacity-100" onClick={() => setNotice(null)} aria-label="Dismiss notice"><X size={13} /></button></div>}
-      {settingsOpen && <SettingsPanel provider={provider} setProvider={setProvider} telemetry={telemetry} setTelemetry={setTelemetry} minimap={minimap} setMinimap={setMinimap} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel provider={provider} setProvider={setProvider} providerApiKey={providerApiKey} setProviderApiKey={setProviderApiKey} telemetry={telemetry} setTelemetry={setTelemetry} minimap={minimap} setMinimap={setMinimap} onClose={() => setSettingsOpen(false)} />}
     </main>
   );
 }
 
-function SettingsPanel({ provider, setProvider, telemetry, setTelemetry, minimap, setMinimap, onClose }: { provider: string; setProvider: (value: string) => void; telemetry: boolean; setTelemetry: (value: boolean) => void; minimap: boolean; setMinimap: (value: boolean) => void; onClose: () => void }) {
+function SettingsPanel({ provider, setProvider, providerApiKey, setProviderApiKey, telemetry, setTelemetry, minimap, setMinimap, onClose }: { provider: string; setProvider: (value: string) => void; providerApiKey: string; setProviderApiKey: (value: string) => void; telemetry: boolean; setTelemetry: (value: boolean) => void; minimap: boolean; setMinimap: (value: boolean) => void; onClose: () => void }) {
+  const [showApiKey, setShowApiKey] = useState(false);
+  const apiSecretName = provider === 'gemini'
+    ? 'GEMINI_API_KEY'
+    : provider === 'openai'
+      ? 'OPENAI_API_KEY'
+      : provider === 'anthropic'
+        ? 'ANTHROPIC_API_KEY'
+        : 'OPENROUTER_API_KEY';
+
   return <div className="settings-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="settings-panel">
       <div className="flex items-start justify-between px-7 pb-5 pt-7">
@@ -939,7 +951,28 @@ function SettingsPanel({ provider, setProvider, telemetry, setTelemetry, minimap
         <div className="mt-5">
           <label className="mb-2 block text-[11px] font-semibold text-[#cbd5ce]" htmlFor="provider-select">Preferred provider</label>
           <select id="provider-select" className="setting-select" value={provider} onChange={(event) => setProvider(event.target.value)}><option value="anthropic">Anthropic</option><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option></select>
-          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">Provider keys are read only by the native desktop Agent service and are never sent through the browser preview.</p>
+          <label className="mb-2 mt-5 block text-[11px] font-semibold text-[#cbd5ce]" htmlFor="provider-api-key">Provider API key</label>
+          <div className="relative">
+            <input
+              id="provider-api-key"
+              className="setting-input pr-10"
+              type={showApiKey ? 'text' : 'password'}
+              value={providerApiKey}
+              onChange={(event) => setProviderApiKey(event.target.value)}
+              placeholder={`Paste ${apiSecretName} for local setup`}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#899397] transition hover:text-[#d5f36a]"
+              type="button"
+              onClick={() => setShowApiKey((current) => !current)}
+              aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+            >
+              {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">Browser preview never sends this value. Add <span className="mono text-[#d5f36a]">{apiSecretName}</span> to Replit Secrets for live responses; desktop setup reads the provider key natively.</p>
         </div>
       </div>
       <div className="setting-section">
