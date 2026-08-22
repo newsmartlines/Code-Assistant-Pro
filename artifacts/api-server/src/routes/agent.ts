@@ -4,9 +4,11 @@ import {
   AskBrowserAgentResponse,
   GetAgentStatusQueryParams,
   GetAgentStatusResponse,
+  ConfigureAgentKeyBody,
+  ConfigureAgentKeyResponse,
 } from "@workspace/api-zod";
 
-import { askAgent, getAgentStatus } from "../lib/agent";
+import { askAgent, configureAgentKey, getAgentStatus } from "../lib/agent";
 
 const router: IRouter = Router();
 
@@ -17,6 +19,15 @@ router.get("/agent/status", (req, res) => {
     return;
   }
   res.json(GetAgentStatusResponse.parse(getAgentStatus(parsed.data.provider)));
+});
+
+router.post("/agent/configure", (req, res) => {
+  const parsed = ConfigureAgentKeyBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Agent configuration requires a provider and API key." });
+    return;
+  }
+  res.json(ConfigureAgentKeyResponse.parse(configureAgentKey(parsed.data.provider, parsed.data.apiKey)));
 });
 
 router.post("/agent/ask", async (req, res) => {

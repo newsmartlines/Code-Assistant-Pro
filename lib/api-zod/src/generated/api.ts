@@ -15,6 +15,8 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
+
+
 /**
  * @summary Get Agent provider status
  */
@@ -61,3 +63,25 @@ export const AskBrowserAgentResponse = zod.object({
   "result": zod.string()
 }))
 })
+
+
+/**
+ * @summary Configure an in-memory Agent provider key
+ */
+export const configureAgentKeyBodyApiKeyMax = 500;
+
+
+
+export const ConfigureAgentKeyBody = zod.object({
+  "provider": zod.enum(['anthropic', 'openai', 'gemini', 'openrouter']),
+  "apiKey": zod.string().min(1).max(configureAgentKeyBodyApiKeyMax)
+})
+
+export const ConfigureAgentKeyResponse = zod.object({
+  "provider": zod.enum(['anthropic', 'openai', 'gemini', 'openrouter']),
+  "model": zod.string(),
+  "configured": zod.boolean(),
+  "message": zod.string()
+})
+
+

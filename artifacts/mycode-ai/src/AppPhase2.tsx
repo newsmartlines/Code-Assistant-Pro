@@ -56,7 +56,7 @@ import {
   verifyAgentPlan,
   writeWorkspaceFile,
 } from '@/native/bridge';
-import { askBrowserAgent, getAgentStatus as getBrowserAgentStatus } from '@workspace/api-client-react';
+import { askBrowserAgent, configureAgentKey, getAgentStatus as getBrowserAgentStatus } from '@workspace/api-client-react';
 import type { AgentMessage, AgentToolEvent } from '@workspace/api-client-react';
 import type {
   CommandResult,
@@ -322,6 +322,7 @@ function AppPhase2() {
   const [notice, setNotice] = useState<string | null>(null);
   const [provider, setProvider] = useState('gemini');
   const [providerApiKey, setProviderApiKey] = useState('');
+  const [savingApiKey, setSavingApiKey] = useState(false);
   const [telemetry, setTelemetry] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [minimap, setMinimap] = useState(true);
@@ -368,6 +369,32 @@ function AppPhase2() {
     setNotice(message);
     window.setTimeout(() => setNotice((current) => (current === message ? null : current)), 4200);
   }, []);
+
+  const saveProviderApiKey = async () => {
+    if (!providerApiKey.trim()) {
+      setSettingsOpen(false);
+      return;
+    }
+    if (desktop) {
+      showNotice('Desktop Agent keys are read from the native environment. Use Replit Secrets for the browser preview.');
+      return;
+    }
+    setSavingApiKey(true);
+    try {
+      const status = await configureAgentKey({
+        provider: provider as 'anthropic' | 'openai' | 'gemini' | 'openrouter',
+        apiKey: providerApiKey,
+      });
+      setAgentStatus(status);
+      setProviderApiKey('');
+      setSettingsOpen(false);
+      showNotice(`${status.provider} is connected and ready.`);
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Could not connect this provider.');
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
     setTree(snapshot.nodes);
@@ -917,12 +944,12 @@ function AppPhase2() {
       </footer>
 
       {notice && <div className="notice fixed bottom-9 left-1/2 z-30 flex max-w-[560px] -translate-x-1/2 items-center gap-2 rounded px-4 py-2.5 text-[11px] shadow-xl"><Info size={14} /><span>{notice}</span><button className="ml-2 text-[#dce9bf] opacity-70 hover:opacity-100" onClick={() => setNotice(null)} aria-label="Dismiss notice"><X size={13} /></button></div>}
-      {settingsOpen && <SettingsPanel provider={provider} setProvider={setProvider} providerApiKey={providerApiKey} setProviderApiKey={setProviderApiKey} telemetry={telemetry} setTelemetry={setTelemetry} minimap={minimap} setMinimap={setMinimap} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel provider={provider} setProvider={setProvider} providerApiKey={providerApiKey} setProviderApiKey={setProviderApiKey} savingApiKey={savingApiKey} telemetry={telemetry} setTelemetry={setTelemetry} minimap={minimap} setMinimap={setMinimap} onSaveApiKey={() => void saveProviderApiKey()} onClose={() => setSettingsOpen(false)} />}
     </main>
   );
 }
 
-function SettingsPanel({ provider, setProvider, providerApiKey, setProviderApiKey, telemetry, setTelemetry, minimap, setMinimap, onClose }: { provider: string; setProvider: (value: string) => void; providerApiKey: string; setProviderApiKey: (value: string) => void; telemetry: boolean; setTelemetry: (value: boolean) => void; minimap: boolean; setMinimap: (value: boolean) => void; onClose: () => void }) {
+function SettingsPanel({ provider, setProvider, providerApiKey, setProviderApiKey, savingApiKey, telemetry, setTelemetry, minimap, setMinimap, onSaveApiKey, onClose }: { provider: string; setProvider: (value: string) => void; providerApiKey: string; setProviderApiKey: (value: string) => void; savingApiKey: boolean; telemetry: boolean; setTelemetry: (value: boolean) => void; minimap: boolean; setMinimap: (value: boolean) => void; onSaveApiKey: () => void; onClose: () => void }) {
   const [showApiKey, setShowApiKey] = useState(false);
   const apiSecretName = provider === 'gemini'
     ? 'GEMINI_API_KEY'
@@ -972,7 +999,7 @@ function SettingsPanel({ provider, setProvider, providerApiKey, setProviderApiKe
               {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">Browser preview never sends this value. Add <span className="mono text-[#d5f36a]">{apiSecretName}</span> to Replit Secrets for live responses; desktop setup reads the provider key natively.</p>
+          <p className="mt-2 text-[10px] leading-[1.6] text-[#687278]">When you activate it, the key is sent over the app connection and kept in API server memory only. It is never written to project files or logs. For persistent setup, add <span className="mono text-[#d5f36a]">{apiSecretName}</span> to Replit Secrets.</p>
         </div>
       </div>
       <div className="setting-section">
@@ -982,7 +1009,7 @@ function SettingsPanel({ provider, setProvider, providerApiKey, setProviderApiKe
         </div>
         <div className="mt-5 flex items-center justify-between"><span className="text-[11px] text-[#687278]">Runtime</span><span className="mono rounded bg-[#333a32] px-2 py-1 text-[10px] text-[#d5f36a]">{isDesktopRuntime() ? 'Windows / Tauri' : 'browser / preview'}</span></div>
       </div>
-      <div className="px-7 py-5"><button className="flex w-full items-center justify-center gap-2 rounded bg-[#d5f36a] px-3 py-2.5 text-[11px] font-bold text-[#111419] transition hover:bg-[#e1f992]" onClick={onClose}><Check size={14} /> Keep these preferences</button></div>
+      <div className="px-7 py-5"><button className="flex w-full items-center justify-center gap-2 rounded bg-[#d5f36a] px-3 py-2.5 text-[11px] font-bold text-[#111419] transition hover:bg-[#e1f992] disabled:cursor-wait disabled:opacity-60" onClick={providerApiKey.trim() ? onSaveApiKey : onClose} disabled={savingApiKey}>{savingApiKey ? <LoaderCircle size={14} className="animate-spin" /> : <Check size={14} />} {savingApiKey ? 'Activating provider…' : providerApiKey.trim() ? 'Activate provider' : 'Keep these preferences'}</button></div>
     </div>
   </div>;
 }

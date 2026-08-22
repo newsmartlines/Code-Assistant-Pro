@@ -23,6 +23,7 @@ import type {
   AgentAskBody,
   AgentResponse,
   AgentStatus,
+  ConfigureAgentKeyInput,
   GetAgentStatusParams,
   HealthStatus
 } from './api.schemas';
@@ -86,6 +87,8 @@ export const getHealthCheckQueryKey = () => {
     `/api/healthz`
     ] as const;
     }
+
+
 export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
@@ -284,3 +287,75 @@ export const useAskBrowserAgent = <TError = ErrorType<void>,
       > => {
       return useMutation(getAskBrowserAgentMutationOptions(options));
     }
+
+export const getConfigureAgentKeyUrl = () => {
+
+
+
+
+  return `/api/agent/configure`
+}
+
+/**
+ * @summary Configure an in-memory Agent provider key
+ */
+export const configureAgentKey = async (configureAgentKeyInput: ConfigureAgentKeyInput, options?: Parameters<typeof customFetch>[1]): Promise<AgentStatus> => {
+
+  return customFetch<AgentStatus>(getConfigureAgentKeyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(configureAgentKeyInput)
+  }
+);}
+
+
+
+
+
+export const getConfigureAgentKeyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof configureAgentKey>>, TError,{data: BodyType<ConfigureAgentKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof configureAgentKey>>, TError,{data: BodyType<ConfigureAgentKeyInput>}, TContext> => {
+
+const mutationKey = ['configureAgentKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof configureAgentKey>>, {data: BodyType<ConfigureAgentKeyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  configureAgentKey(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfigureAgentKeyMutationResult = NonNullable<Awaited<ReturnType<typeof configureAgentKey>>>
+    export type ConfigureAgentKeyMutationBody = BodyType<ConfigureAgentKeyInput>
+    export type ConfigureAgentKeyMutationError = ErrorType<void>
+
+    /**
+ * @summary Configure an in-memory Agent provider key
+ */
+export const useConfigureAgentKey = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof configureAgentKey>>, TError,{data: BodyType<ConfigureAgentKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof configureAgentKey>>,
+        TError,
+        {data: BodyType<ConfigureAgentKeyInput>},
+        TContext
+      > => {
+      return useMutation(getConfigureAgentKeyMutationOptions(options));
+    }
+

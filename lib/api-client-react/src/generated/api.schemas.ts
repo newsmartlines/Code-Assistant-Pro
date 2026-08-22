@@ -48,6 +48,15 @@ export interface AgentAskBody {
   files: AgentFile[];
 }
 
+export interface ConfigureAgentKeyInput {
+  provider: AgentProvider;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  apiKey: string;
+}
+
 export interface AgentToolEvent {
   tool: string;
   input: string;
@@ -71,3 +80,4 @@ export interface AgentResponse {
 export type GetAgentStatusParams = {
 provider: AgentProvider;
 };
+

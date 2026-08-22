@@ -66,6 +66,26 @@ paths:
           description: Invalid Agent request
         "503":
           description: Provider is not configured
+  /agent/configure:
+    post:
+      operationId: configureAgentKey
+      tags: [agent]
+      summary: Configure an in-memory Agent provider key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigureAgentKeyInput"
+      responses:
+        "200":
+          description: Provider status after configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentStatus"
+        "400":
+          description: Invalid provider configuration
 components:
   schemas:
     HealthStatus:
@@ -114,6 +134,16 @@ components:
           items:
             $ref: "#/components/schemas/AgentFile"
       required: [provider, messages, files]
+    ConfigureAgentKeyInput:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/AgentProvider"
+        apiKey:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required: [provider, apiKey]
     AgentToolEvent:
       type: object
       properties:

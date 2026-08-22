@@ -14,5 +14,6 @@ export * from './agentResponse';
 export * from './agentRole';
 export * from './agentStatus';
 export * from './agentToolEvent';
+export * from './configureAgentKeyInput';
 export * from './getAgentStatusParams';
 export * from './healthStatus';

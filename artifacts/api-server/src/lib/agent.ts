@@ -36,6 +36,7 @@ const MAX_FILE_CHARS = 80_000;
 const MAX_TOOL_RESULT_CHARS = 12_000;
 const MAX_TURNS = 6;
 const PROVIDER_TIMEOUT_MS = 20_000;
+const runtimeKeys = new Map<AgentProvider, string>();
 
 const systemPrompt = `You are MyCode AI, a careful coding assistant.
 You are answering from a browser preview with a read-only virtual workspace.
@@ -246,13 +247,24 @@ async function providerRequest(
 
 export function getAgentStatus(provider: AgentProvider) {
   const config = PROVIDERS[provider];
-  const configured = Boolean(process.env[config.envName]?.trim());
+  const configured = Boolean(process.env[config.envName]?.trim() || runtimeKeys.get(provider));
   return {
     provider,
     model: config.model,
     configured,
     message: configured ? `${provider} is ready` : `Set ${config.envName} on the API server to enable live responses.`,
   };
+}
+
+export function configureAgentKey(provider: AgentProvider, key: string) {
+  const trimmedKey = key.trim();
+  if (trimmedKey) runtimeKeys.set(provider, trimmedKey);
+  else runtimeKeys.delete(provider);
+  return getAgentStatus(provider);
+}
+
+function getProviderKey(provider: AgentProvider) {
+  return process.env[PROVIDERS[provider].envName]?.trim() || runtimeKeys.get(provider);
 }
 
 export async function askAgent(
@@ -262,7 +274,8 @@ export async function askAgent(
   signal?: AbortSignal,
 ) {
   const status = getAgentStatus(provider);
-  if (!status.configured) {
+  const providerKey = getProviderKey(provider);
+  if (!providerKey) {
     const error = new Error(status.message);
     (error as Error & { status?: number }).status = 503;
     throw error;
@@ -272,7 +285,7 @@ export async function askAgent(
   const history: unknown[] = [];
   let finalMessage = "";
   for (let turn = 0; turn < MAX_TURNS; turn += 1) {
-    const result = await providerRequest(provider, process.env[PROVIDERS[provider].envName]!, messages, history, signal);
+    const result = await providerRequest(provider, providerKey, messages, history, signal);
     if (provider === "anthropic") {
       history.push({ role: "assistant", content: result.raw });
     } else if (provider === "openai" || provider === "openrouter") {
